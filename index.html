@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="" />
+    <title>Singapore Crime Stats</title>
+
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
+      crossorigin="anonymous"
+    />
+
+    <!-- Custom CSS -->
+    <style>
+      .container {
+        max-width: 1100px;
+      }
+
+      .header {
+        max-width: 700px;
+      }
+
+      div.tooltip {
+        position: absolute;
+        text-align: center;
+        width: 90px;
+        height: 30px;
+        padding: 2px;
+        background: Gainsboro;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container py-3">
+      <header>
+        <div class="header p-3 pb-md-4 mx-auto text-center">
+          <h1 class="display-4 fw-normal">Singapore Crime Statistics</h1>
+          <p class="fs-5 text-muted">
+            Find out what are the most common types of crimes committed in Singapore! Use the dropdown button to view
+            the top crimes by year. Hover over the bars to see the exact number of crimes committed.
+          </p>
+        </div>
+      </header>
+
+      <main>
+        <h2 id="timestamp" class="h5 text-center mb-3"></h2>
+
+        <div class="dropdown">
+          <button class="btn btn-secondary dropdown-toggle" type="button" id="yearlist" data-bs-toggle="dropdown">
+            2011
+          </button>
+          <ul id="years" class="dropdown-menu"></ul>
+        </div>
+
+        <div id="bar_chart"></div>
+      </main>
+    </div>
+
+    <!-- Required JS files -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.5/dist/umd/popper.min.js"
+      integrity="sha384-Xe+8cL9oJa6tN/veChSP7q+mnSPaj5Bcu9mPX5F5xIGE0DVittaqT5lorf0EI7Vk"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js"
+      integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.4.4/d3.min.js"
+      integrity="sha512-hnFpvCiJ8Fr1lYLqcw6wLgFUOEZ89kWCkO+cEekwcWPIPKyknKV1eZmSSG3UxXfsSuf+z/SgmiYB1zFOg3l2UQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+
+    <!-- Main Script -->
+    <script type="text/javascript">
+      $(document).ready(function () {
+        let barData = []
+
+        $.getJSON(
+          'https://data.gov.sg/api/action/datastore_search?resource_id=83c21090-bd19-4b54-ab6b-d999c251edcf',
+          function (data) {
+            let records = data.result.records
+
+            // Group JSON by year
+            var groupBy = function (json, key) {
+              return json.reduce(function (rv, x) {
+                ;(rv[x[key]] = rv[x[key]] || []).push(x)
+                return rv
+              }, {})
+            }
+
+            var groupedYearData = groupBy(records, 'year')
+
+            // Set dropdown box values
+            var years = Object.keys(groupedYearData)
+            var getDropdown = document.getElementById('years')
+            for (var i = 0; i < years.length; i++) {
+              getDropdown.innerHTML += '<li><button class="dropdown-item" type="button">' + years[i] + '</button></li>'
+            }
+
+            // Dropdown click handler
+            var elements = document.getElementsByClassName('dropdown-item')
+            Array.from(elements).forEach((element) => {
+              element.addEventListener('click', (event) => {
+                $('#yearlist').text(event.target.innerText)
+                updateChart(groupedYearData[event.target.innerText])
+              })
+            })
+
+            barData = groupedYearData[2011] // Init chart data axis
+
+            // Set the dimensions and margins of the graph
+            var margin = { top: 30, right: 30, bottom: 70, left: 60 },
+              width = 1100 - margin.left - margin.right,
+              height = 600 - margin.top - margin.bottom
+
+            // Append the svg object to the body of the page
+            var svg = d3
+              .select('#bar_chart')
+              .append('svg')
+              .attr('preserveAspectRatio', 'xMinYMin meet')
+              .attr('viewBox', '0 0 1100 600')
+              .append('g')
+              .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+
+            // Add X axis
+            var x = d3
+              .scaleBand()
+              .range([0, width])
+              .domain(
+                barData.map(function (d) {
+                  return d.level_2
+                })
+              )
+              .padding(0.2)
+            svg
+              .append('g')
+              .attr('transform', 'translate(0,' + height + ')')
+              .call(d3.axisBottom(x))
+
+            // Add Y axis
+            var y = d3
+              .scaleLinear()
+              .domain([0, d3.max(barData, (d) => Math.max(d.value))])
+              .range([height, 0])
+            var yAxis = svg.append('g').attr('class', 'y_axis').call(d3.axisLeft(y))
+
+            var div = d3.select('body').append('div').attr('class', 'tooltip fs-6').style('opacity', 0)
+
+            // Update chart
+            function updateChart(data) {
+              var bar = svg.selectAll('rect').data(data)
+
+              bar
+                .enter()
+                .append('rect')
+                .merge(bar)
+                .transition()
+                .duration(1000)
+                .attr('x', function (d) {
+                  return x(d.level_2)
+                })
+                .attr('y', function (d) {
+                  return y(d.value)
+                })
+                .attr('width', x.bandwidth())
+                .attr('height', function (d) {
+                  return height - y(d.value)
+                })
+                .attr('fill', '#EE4B2B')
+
+              // mouse events/hover features for bar
+              bar
+                .on('mouseover', function (event, d) {
+                  d3.select(this).transition().duration('50').attr('opacity', '.85')
+
+                  div.transition().duration(200).style('opacity', 0.9)
+                  div
+                    .html('Total: ' + d.value)
+                    .style('left', event.pageX + 'px')
+                    .style('top', event.pageY - 28 + 'px')
+                })
+                .on('mouseout', function (d) {
+                  d3.select(this).transition().duration('50').attr('opacity', '1')
+
+                  div.transition().duration(500).style('opacity', 0)
+                })
+
+              // Update y axis to match highest crime num
+              y.domain([0, d3.max(data, (d) => Math.max(d.value))])
+              yAxis.transition().duration(1000).call(d3.axisLeft(y))
+            }
+
+            updateChart(groupedYearData[2011]) // Init chart data for bars
+          }
+        )
+      })
+    </script>
+  </body>
+</html>
