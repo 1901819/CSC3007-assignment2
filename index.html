@@ -166,23 +166,6 @@
               bar
                 .enter()
                 .append('rect')
-                .merge(bar)
-                .transition()
-                .duration(1000)
-                .attr('x', function (d) {
-                  return x(d.level_2)
-                })
-                .attr('y', function (d) {
-                  return y(d.value)
-                })
-                .attr('width', x.bandwidth())
-                .attr('height', function (d) {
-                  return height - y(d.value)
-                })
-                .attr('fill', '#EE4B2B')
-
-              // mouse events/hover features for bar
-              bar
                 .on('mouseover', function (event, d) {
                   d3.select(this).transition().duration('50').attr('opacity', '.85')
 
@@ -197,6 +180,20 @@
 
                   div.transition().duration(500).style('opacity', 0)
                 })
+                .merge(bar)
+                .transition()
+                .duration(1000)
+                .attr('x', function (d) {
+                  return x(d.level_2)
+                })
+                .attr('y', function (d) {
+                  return y(d.value)
+                })
+                .attr('width', x.bandwidth())
+                .attr('height', function (d) {
+                  return height - y(d.value)
+                })
+                .attr('fill', '#EE4B2B')
 
               // Update y axis to match highest crime num
               y.domain([0, d3.max(data, (d) => Math.max(d.value))])
