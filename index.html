@@ -161,8 +161,11 @@
 
             // Update chart
             function updateChart(data) {
-              var bar = svg.selectAll('rect').data(data)
+              // Update y axis to match highest crime num
+              y.domain([0, d3.max(data, (d) => Math.max(d.value))])
+              yAxis.transition().duration(1000).call(d3.axisLeft(y))
 
+              var bar = svg.selectAll('rect').data(data)
               bar
                 .enter()
                 .append('rect')
@@ -194,10 +197,6 @@
                   return height - y(d.value)
                 })
                 .attr('fill', '#EE4B2B')
-
-              // Update y axis to match highest crime num
-              y.domain([0, d3.max(data, (d) => Math.max(d.value))])
-              yAxis.transition().duration(1000).call(d3.axisLeft(y))
             }
 
             updateChart(groupedYearData[2011]) // Init chart data for bars
